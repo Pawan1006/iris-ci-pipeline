@@ -1,0 +1,40 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install dvc cml pytest scikit-learn pandas joblib
+
+      - name: Initialize DVC
+        run: |
+          dvc init --no-scm
+          echo "Skipping dvc pull for now (no remote configured yet)"
+
+      - name: Run Pytest
+        run: pytest -v > result.txt
+
+      - name: Post test results as PR comment
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install cml
+          cml comment create result.txt

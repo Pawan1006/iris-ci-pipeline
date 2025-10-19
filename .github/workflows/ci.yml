@@ -13,9 +13,11 @@ jobs:
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS }}
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Step 2: Setup Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -27,20 +29,21 @@ jobs:
 
       # Step 4: Install project dependencies
       - name: Install dependencies
-        # Ensure pytest is installed here (if not in requirements.txt)
         run: pip install -r requirements.txt --no-cache-dir
 
       # Step 5: Install DVC separately
       - name: Install DVC
         run: pip install "dvc[gcs]" --no-cache-dir
 
-      # Step 6: *** REMOVE FAILED 'pip install cml' STEP ***
+      # Step 6: Install CML separately
+      - name: Install CML
+        run: pip install cml --no-cache-dir
 
-      # Step 7: Save GCP key & configure credentials (Combined for brevity)
-      - name: Configure GCP credentials
-        run: |
-          printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
+      # Step 7: Save GCP key & configure credentials
+      - name: Save GCP key
+        run: printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
+      - name: Set Google credentials
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
       # Step 8: Pull model & data from DVC
       - name: Pull data & model
@@ -51,12 +54,8 @@ jobs:
         run: |
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 10: Setup CML and Comment test results (PR only)
+      # Step 10: Comment test results via CML (PR only)
       - name: Comment test results via CML
         if: github.event_name == 'pull_request'
-        # *** USE THE DEDICATED CML ACTION TO AVOID PIP DEPENDENCY ERRORS ***
-        uses: iterative/setup-cml@v2 
-        env:
-            REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cml-send-comment result.txt

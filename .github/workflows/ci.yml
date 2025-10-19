@@ -50,9 +50,13 @@ jobs:
         run: |
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 9: Post test results as PR comment using CML GitHub Action
+      # Step 9: Post test results as PR comment using CML
       - name: Comment test results via CML
         if: github.event_name == 'pull_request'
-        uses: iterative/cml@v1
+        uses: iterative/setup-cml@v2
         with:
-          args: comment result.txt
+          version: 'latest'
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cml-send-comment result.txt

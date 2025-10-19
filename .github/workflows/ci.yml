@@ -35,10 +35,6 @@ jobs:
       - name: Install DVC
         run: pip install "dvc[gcs]" --no-cache-dir
 
-      # Step 6: Install CML separately
-      - name: Install CML
-        run: pip install cml --no-cache-dir
-
       # Step 7: Save GCP key & configure credentials
       - name: Save GCP key
         run: printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json

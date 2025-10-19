@@ -29,34 +29,34 @@ jobs:
         run: |
           # Upgrade essential tools
           python -m pip install --upgrade pip setuptools wheel
-          # Install project dependencies including pytest (must be in requirements.txt)
+          # Install project dependencies
           pip install -r requirements.txt --no-cache-dir
           # Install DVC with Google Cloud Storage support
           pip install "dvc[gcs]" --no-cache-dir
 
       - name: Configure GCP credentials
         run: |
-          # Save GCP key from secret to a temporary file
+          # Save GCP key to a file and set GOOGLE_APPLICATION_CREDENTIALS for authentication
           printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
-          # Set the environment variable required for DVC/GCS to use the key file
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
       - name: Pull data & model from DVC
-        # Authenticates using GOOGLE_APPLICATION_CREDENTIALS and downloads files
+        # Downloads the model and data files tracked by DVC from GCS
         run: dvc pull -v
 
       - name: Run Pytest tests (Evaluation & Validation)
         run: |
-          # Execute tests, save output to result.txt for CML, and result.xml for visibility
+          # Execute tests, save output to result.txt for CML, and result.xml
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
       - name: Comment test results via CML
         # Only runs if the workflow was triggered by a pull request
         if: github.event_name == 'pull_request'
+        # Uses the CML setup action
         uses: iterative/setup-cml@v2
         env:
           # Use the default GitHub token for commenting on the PR
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Executes the CML command AFTER the setup action runs
         run: |
-          # Post the contents of the test result file as a comment on the PR
           cml-send-comment result.txt

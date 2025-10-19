@@ -10,64 +10,73 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS }}
-      PROJECT_ID: mlops-466312
+      GCP_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
 
     steps:
-      # Step 1: Checkout repository
+      # Step 1: Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # Step 2: Setup Python
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Step 3: Upgrade pip & tools
-      - name: Upgrade pip & setuptools
-        run: python -m pip install --upgrade pip setuptools wheel
-
-      # Step 4: Install dependencies
+      # Step 3: Upgrade pip and install dependencies
       - name: Install dependencies
-        run: pip install -r requirements.txt --no-cache-dir
-
-      # Step 5: Install DVC
-      - name: Install DVC
-        run: pip install "dvc[gcs]" --no-cache-dir
-
-      # Step 6: Save and authenticate GCP credentials
-      - name: Configure GCP credentials
         run: |
-          echo "$GCP_CREDENTIALS_JSON" > gcp-key.json
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt --no-cache-dir || true
+          pip install "dvc[gcs]" --no-cache-dir || true
+
+      # Step 4: Set up and authenticate with GCP
+      - name: Set up GCP credentials and authenticate
+        run: |
+          set -e
+          echo "🔑 Decoding GCP credentials..."
+          echo "$GCP_B64" | base64 -d > gcp-key.json
+
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
-          sudo apt-get update -qq && sudo apt-get install -y google-cloud-cli
+          export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json
+
+          echo "✅ Validating service account JSON..."
+          python3 -m json.tool gcp-key.json > /dev/null && echo "✓ JSON is valid"
+
+          echo "📦 Installing Google Cloud CLI..."
+          sudo apt-get update -qq
+          sudo apt-get install -y google-cloud-cli
+
+          echo "🔐 Authenticating with GCP..."
           gcloud auth activate-service-account --key-file=gcp-key.json
-          gcloud config set project $PROJECT_ID
+          gcloud config set project mlops-466312
 
-      # Step 7: Configure DVC remote
-      - name: Configure DVC remote
-        run: |
-          dvc remote list || echo "⚠️ No remotes found, skipping list"
-          dvc remote modify gcsremote credentialpath $(pwd)/gcp-key.json || true
-          dvc remote modify gcsremote gdrive_use_service_account true || true
+          echo "🪣 Configuring DVC remote..."
+          dvc remote list || echo "⚠️ No DVC remote found in config"
+          dvc remote modify gcsremote credentialpath $(pwd)/gcp-key.json --local || true
+          dvc remote modify gcsremote gdrive_use_service_account true --local || true
 
-      # Step 8: Pull data & model
-      - name: Pull data & model from DVC
-        run: dvc pull -v
+          echo "📥 Pulling data & model files from DVC remote..."
+          GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json dvc pull -v
 
-      # Step 9: Run evaluation & data validation tests
-      - name: Run Pytest tests
+          echo "✅ DVC pull completed successfully!"
+
+      # Step 5: Run tests using pytest
+      - name: Run unit & evaluation tests
         run: |
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 10: Comment test results via official CML action
-      - name: Comment test results via CML
-        if: github.event_name == 'pull_request'
-        uses: iterative/setup-cml@v2
-        with:
-          version: latest
-      - name: Post CML comment
+      # Step 6: Install CML for commenting PR results
+      - name: Install CML
         if: github.event_name == 'pull_request'
         run: |
-          npx cml comment create --file result.txt
+          npm install -g @dvcorg/cml
+
+      # Step 7: Comment test results on PR via CML
+      - name: Comment test results via CML
+        if: github.event_name == 'pull_request'
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📝 Sending test results comment via CML..."
+          cml comment create --file result.txt

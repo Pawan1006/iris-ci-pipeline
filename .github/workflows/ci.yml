@@ -29,6 +29,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt --no-cache-dir
           pip install "dvc[gcs]" --upgrade --no-cache-dir
+	  pip install "dvc-gs" --upgrade --no-cache-dir
           pip install google-cloud-storage --upgrade --no-cache-dir
 
       # Step 4: Set up and authenticate with GCP

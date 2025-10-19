@@ -1,0 +1,70 @@
+name: IRIS CI Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      GCP_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # Step 3: Install dependencies including DVC with GCS support
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt --no-cache-dir
+          pip install "dvc[gcs]" --upgrade --no-cache-dir
+          pip install "dvc-gs" --upgrade --no-cache-dir
+          pip install google-cloud-storage --upgrade --no-cache-dir
+
+      # Step 4: Set up and authenticate with GCP
+      - name: Set up GCP credentials
+        run: |
+          echo "$GCP_B64" > gcp-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
+          python3 -m json.tool gcp-key.json > /dev/null && echo "✓ JSON valid"
+          sudo apt-get update -qq && sudo apt-get install -y google-cloud-cli
+          gcloud auth activate-service-account --key-file=gcp-key.json
+          gcloud config set project mlops-466312
+
+      # Step 5: Pull data & model from DVC
+      - name: Pull data & model from DVC
+        run: |
+          echo "DVC remotes:"
+          dvc remote list
+          echo "Pulling from myremote..."
+          dvc pull -v -r myremote
+          echo "✅ DVC pull completed successfully!"
+
+      # Step 6: Run tests using pytest
+      - name: Run unit & evaluation tests
+        run: |
+          pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
+
+      # Step 7: Install CML for PR comments
+      - name: Install CML
+        if: github.event_name == 'pull_request'
+        run: npm install -g @dvcorg/cml
+
+      # Step 8: Comment test results on PR via CML
+      - name: Comment test results via CML
+        if: github.event_name == 'pull_request'
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cml comment create --file result.txt

@@ -31,31 +31,28 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt --no-cache-dir
 
-      # Step 5: Install DVC separately
+      # Step 5: Install DVC
       - name: Install DVC
         run: pip install "dvc[gcs]" --no-cache-dir
 
-      # Step 6: Install CML separately
-      - name: Install CML
-        run: pip install cml --no-cache-dir
-
-      # Step 7: Save GCP key & configure credentials
+      # Step 6: Save GCP key & configure credentials
       - name: Save GCP key
         run: printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
       - name: Set Google credentials
         run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
-      # Step 8: Pull model & data from DVC
+      # Step 7: Pull model & data from DVC
       - name: Pull data & model
         run: dvc pull -v
 
-      # Step 9: Run evaluation & data validation tests
+      # Step 8: Run evaluation & data validation tests
       - name: Run Pytest tests
         run: |
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 10: Comment test results via CML (PR only)
+      # Step 9: Post test results as PR comment using CML GitHub Action
       - name: Comment test results via CML
         if: github.event_name == 'pull_request'
-        run: |
-          cml-send-comment result.txt
+        uses: iterative/cml@v1
+        with:
+          args: comment result.txt

@@ -2,61 +2,61 @@ name: IRIS CI Pipeline
 
 on:
   push:
+    # Trigger on push to main or dev
     branches: [main, dev]
   pull_request:
+    # Trigger on pull request targeting main or dev
     branches: [main, dev]
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # Define an environment variable for the job to hold the JSON credential secret
     env:
+      # This secret must be configured in your GitHub repository settings
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS }}
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Setup Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      # Step 3: Upgrade pip & tools
-      - name: Upgrade pip & setuptools
-        run: python -m pip install --upgrade pip setuptools wheel
+      - name: Install dependencies (pip, setuptools, DVC)
+        run: |
+          # Upgrade essential tools
+          python -m pip install --upgrade pip setuptools wheel
+          # Install project dependencies including pytest (must be in requirements.txt)
+          pip install -r requirements.txt --no-cache-dir
+          # Install DVC with Google Cloud Storage support
+          pip install "dvc[gcs]" --no-cache-dir
 
-      # Step 4: Install project dependencies
-      - name: Install dependencies
-        run: pip install -r requirements.txt --no-cache-dir
+      - name: Configure GCP credentials
+        run: |
+          # Save GCP key from secret to a temporary file
+          printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
+          # Set the environment variable required for DVC/GCS to use the key file
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
-      # Step 5: Install DVC
-      - name: Install DVC
-        run: pip install "dvc[gcs]" --no-cache-dir
-
-      # Step 6: Save GCP key & configure credentials
-      - name: Save GCP key
-        run: printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
-      - name: Set Google credentials
-        run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
-
-      # Step 7: Pull model & data from DVC
-      - name: Pull data & model
+      - name: Pull data & model from DVC
+        # Authenticates using GOOGLE_APPLICATION_CREDENTIALS and downloads files
         run: dvc pull -v
 
-      # Step 8: Run evaluation & data validation tests
-      - name: Run Pytest tests
+      - name: Run Pytest tests (Evaluation & Validation)
         run: |
+          # Execute tests, save output to result.txt for CML, and result.xml for visibility
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 9: Post test results as PR comment using CML
       - name: Comment test results via CML
+        # Only runs if the workflow was triggered by a pull request
         if: github.event_name == 'pull_request'
         uses: iterative/setup-cml@v2
-        with:
-          version: 'latest'
         env:
+          # Use the default GitHub token for commenting on the PR
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Post the contents of the test result file as a comment on the PR
           cml-send-comment result.txt

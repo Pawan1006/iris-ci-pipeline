@@ -13,7 +13,7 @@ jobs:
       GCP_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
 
     steps:
-      # Step 1: Checkout the repo
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,50 +28,43 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt --no-cache-dir
-	  pip install "dvc[gcs]" --upgrade --no-cache-dir	
-	  pip install "dvc-gs" --upgrade --no-cache-dir	
+          pip install "dvc[gcs]" --upgrade --no-cache-dir
+          pip install "dvc-gs" --upgrade --no-cache-dir
           pip install google-cloud-storage --upgrade --no-cache-dir
 
       # Step 4: Set up and authenticate with GCP
-      - name: Set up GCP credentials and authenticate
+      - name: Set up GCP credentials
         run: |
-          set -e
-          echo "🔑 Writing GCP service account key..."
           echo "$GCP_B64" > gcp-key.json
-
           export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
-          echo "✅ Validating JSON key..."
-          python3 -m json.tool gcp-key.json > /dev/null && echo "✓ JSON is valid"
-
-          echo "📦 Installing Google Cloud CLI..."
-          sudo apt-get update -qq
-          sudo apt-get install -y google-cloud-cli
-
-          echo "🔐 Authenticating with GCP..."
+          python3 -m json.tool gcp-key.json > /dev/null && echo "✓ JSON valid"
+          sudo apt-get update -qq && sudo apt-get install -y google-cloud-cli
           gcloud auth activate-service-account --key-file=gcp-key.json
           gcloud config set project mlops-466312
 
-          echo "📥 Pulling data & model files from DVC remote..."
-          dvc pull -v
+      # Step 5: Pull data & model from DVC
+      - name: Pull data & model from DVC
+        run: |
+          echo "DVC remotes:"
+          dvc remote list
+          echo "Pulling from myremote..."
+          dvc pull -v -r myremote
           echo "✅ DVC pull completed successfully!"
 
-      # Step 5: Run tests using pytest
+      # Step 6: Run tests using pytest
       - name: Run unit & evaluation tests
         run: |
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 6: Install CML for commenting PR results
+      # Step 7: Install CML for PR comments
       - name: Install CML
         if: github.event_name == 'pull_request'
-        run: |
-          npm install -g @dvcorg/cml
+        run: npm install -g @dvcorg/cml
 
-      # Step 7: Comment test results on PR via CML
+      # Step 8: Comment test results on PR via CML
       - name: Comment test results via CML
         if: github.event_name == 'pull_request'
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "📝 Sending test results comment via CML..."
-          cml comment create --file result.txt
+        run: cml comment create --file result.txt

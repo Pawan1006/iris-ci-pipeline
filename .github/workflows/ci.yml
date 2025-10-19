@@ -2,18 +2,17 @@ name: IRIS CI Pipeline
 
 on:
   push:
-    # Trigger on push to main or dev
+    # Triggers on push to both the 'main' and 'dev' branches
     branches: [main, dev]
   pull_request:
-    # Trigger on pull request targeting main or dev
+    # Triggers on Pull Requests targeting both 'main' and 'dev' branches
     branches: [main, dev]
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # Define an environment variable for the job to hold the JSON credential secret
     env:
-      # This secret must be configured in your GitHub repository settings
+      # Secret used for DVC/GCS authentication. Must be set in GitHub Secrets.
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS }}
 
     steps:
@@ -29,34 +28,35 @@ jobs:
         run: |
           # Upgrade essential tools
           python -m pip install --upgrade pip setuptools wheel
-          # Install project dependencies
+          # Install project dependencies (including pytest/unittest if in requirements.txt)
           pip install -r requirements.txt --no-cache-dir
           # Install DVC with Google Cloud Storage support
           pip install "dvc[gcs]" --no-cache-dir
 
       - name: Configure GCP credentials
         run: |
-          # Save GCP key to a file and set GOOGLE_APPLICATION_CREDENTIALS for authentication
+          # Save GCP key from secret to a file
           printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
+          # Set the environment variable for DVC/GCS to use the key file
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
       - name: Pull data & model from DVC
-        # Downloads the model and data files tracked by DVC from GCS
+        # Fetches the version-controlled data and model from the GCS remote
         run: dvc pull -v
 
       - name: Run Pytest tests (Evaluation & Validation)
         run: |
-          # Execute tests, save output to result.txt for CML, and result.xml
+          # Executes tests, generates an XML report, and saves the console output to result.txt
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
       - name: Comment test results via CML
-        # Only runs if the workflow was triggered by a pull request
+        # This step only runs when a Pull Request triggers the workflow
         if: github.event_name == 'pull_request'
-        # Uses the CML setup action
+        # Sets up the CML environment
         uses: iterative/setup-cml@v2
         env:
-          # Use the default GitHub token for commenting on the PR
+          # Uses the GitHub token for permission to post comments
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Executes the CML command AFTER the setup action runs
+        # Executes the CML command to post the report
         run: |
           cml-send-comment result.txt

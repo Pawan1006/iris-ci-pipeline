@@ -2,17 +2,14 @@ name: IRIS CI Pipeline
 
 on:
   push:
-    # Triggers on push to both the 'main' and 'dev' branches
     branches: [main, dev]
   pull_request:
-    # Triggers on Pull Requests targeting both 'main' and 'dev' branches
     branches: [main, dev]
 
 jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      # Secret used for DVC/GCS authentication. Must be set in GitHub Secrets.
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS }}
 
     steps:
@@ -24,39 +21,42 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install dependencies (pip, setuptools, DVC)
-        run: |
-          # Upgrade essential tools
-          python -m pip install --upgrade pip setuptools wheel
-          # Install project dependencies (including pytest/unittest if in requirements.txt)
-          pip install -r requirements.txt --no-cache-dir
-          # Install DVC with Google Cloud Storage support
-          pip install "dvc[gcs]" --no-cache-dir
+      # Step 3: Upgrade pip & tools
+      - name: Upgrade pip & setuptools
+        run: python -m pip install --upgrade pip setuptools wheel
 
+      # Step 4: Install project dependencies
+      - name: Install dependencies
+        # Ensure pytest is installed here (if not in requirements.txt)
+        run: pip install -r requirements.txt --no-cache-dir
+
+      # Step 5: Install DVC separately
+      - name: Install DVC
+        run: pip install "dvc[gcs]" --no-cache-dir
+
+      # Step 6: *** REMOVE FAILED 'pip install cml' STEP ***
+
+      # Step 7: Save GCP key & configure credentials (Combined for brevity)
       - name: Configure GCP credentials
         run: |
-          # Save GCP key from secret to a file
           printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
-          # Set the environment variable for DVC/GCS to use the key file
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
-      - name: Pull data & model from DVC
-        # Fetches the version-controlled data and model from the GCS remote
+      # Step 8: Pull model & data from DVC
+      - name: Pull data & model
         run: dvc pull -v
 
-      - name: Run Pytest tests (Evaluation & Validation)
+      # Step 9: Run evaluation & data validation tests
+      - name: Run Pytest tests
         run: |
-          # Executes tests, generates an XML report, and saves the console output to result.txt
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
+      # Step 10: Setup CML and Comment test results (PR only)
       - name: Comment test results via CML
-        # This step only runs when a Pull Request triggers the workflow
         if: github.event_name == 'pull_request'
-        # Sets up the CML environment
-        uses: iterative/setup-cml@v2
+        # *** USE THE DEDICATED CML ACTION TO AVOID PIP DEPENDENCY ERRORS ***
+        uses: iterative/setup-cml@v2 
         env:
-          # Uses the GitHub token for permission to post comments
-          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Executes the CML command to post the report
+            REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cml-send-comment result.txt

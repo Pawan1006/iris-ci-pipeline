@@ -35,7 +35,7 @@ jobs:
         run: |
           set -e
           echo "🔑 Decoding GCP credentials..."
-          echo "$GCP_B64" | base64 -d > gcp-key.json
+          echo "$GCP_B64" > gcp-key.json
 
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
           export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json

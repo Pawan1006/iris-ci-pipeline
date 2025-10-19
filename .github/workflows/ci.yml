@@ -13,7 +13,7 @@ jobs:
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS }}
 
     steps:
-      # Step 1: Checkout repo
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -27,32 +27,34 @@ jobs:
       - name: Upgrade pip & setuptools
         run: python -m pip install --upgrade pip setuptools wheel
 
-      # Step 4: Install dependencies
+      # Step 4: Install project dependencies
       - name: Install dependencies
         run: pip install -r requirements.txt --no-cache-dir
 
-      # Step 5: Install DVC + CML
+      # Step 5: Install DVC separately
       - name: Install DVC
         run: pip install "dvc[gcs]" --no-cache-dir
-      - name: Install CML
-	run: pip install cml --no-cache-dir
 
-      # Step 6: Save GCP key & configure credentials
+      # Step 6: Install CML separately
+      - name: Install CML
+        run: pip install cml --no-cache-dir
+
+      # Step 7: Save GCP key & configure credentials
       - name: Save GCP key
         run: printf "%s" "${GCP_CREDENTIALS_JSON}" > gcp-key.json
       - name: Set Google credentials
         run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
-      # Step 7: Pull model & data from DVC
+      # Step 8: Pull model & data from DVC
       - name: Pull data & model
         run: dvc pull -v
 
-      # Step 8: Run evaluation & data validation tests
+      # Step 9: Run evaluation & data validation tests
       - name: Run Pytest tests
         run: |
           pytest tests/ --junitxml=result.xml --tb=short | tee result.txt
 
-      # Step 9: Post CML report as PR comment
+      # Step 10: Comment test results via CML (PR only)
       - name: Comment test results via CML
         if: github.event_name == 'pull_request'
         run: |

@@ -8,11 +8,8 @@ from joblib import dump
 from sklearn.datasets import load_iris
 import os
 
-# Ensure mlruns directory is created inside current repo
-os.makedirs("mlruns", exist_ok=True)
-
-# ✅ Force local MLflow tracking URI (relative path)
-mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
+os.environ["MLFLOW_HOME"] = os.path.abspath("./mlruns")
+mlflow.set_tracking_uri(f"file://{os.environ['MLFLOW_HOME']}")
 
 mlflow.set_experiment("Iris_Pipeline_MLflow")
 

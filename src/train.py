@@ -6,6 +6,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from joblib import dump
 from sklearn.datasets import load_iris
+import os
 
 os.makedirs("mlruns", exist_ok=True)
 mlflow.set_tracking_uri("file:./mlruns")

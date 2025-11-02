@@ -25,8 +25,8 @@ jobs:
           pip install -r requirements.txt
           pip install dvc[all] mlflow
 
-      - name: Pull data from DVC
-        run: dvc pull
+     # - name: Pull data from DVC
+     #  run: dvc pull
 
       - name: Train model
         run: python src/train.py

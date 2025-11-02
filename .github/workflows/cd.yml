@@ -1,4 +1,4 @@
-name: CD Pipeline - Deploy FastAPI App
+name: CD Pipeline - Deploy FastAPI App on GKE
 
 on:
   push:
@@ -12,21 +12,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Google Cloud authentication
+        uses: google-github-actions/auth@v2
         with:
-          python-version: "3.10"
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install dependencies
+      - name: Configure Docker to use gcloud as a credential helper
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build Docker image
         run: |
-          pip install -r requirements.txt
+          docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/iris-repo/iris-api:latest .
 
-      - name: Deploy to GCP (Cloud Run)
-        uses: google-github-actions/deploy-cloudrun@v2
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/iris-repo/iris-api:latest
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
         with:
-          service: iris-api
-          region: asia-south1
-          source: .
+          cluster_name: cluster-1
+          location: us-east1-b
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy to GKE
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml

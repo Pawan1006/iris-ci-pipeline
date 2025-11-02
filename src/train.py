@@ -5,10 +5,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from joblib import dump
+from sklearn.datasets import load_iris
 
 def load_data():
-    X = pd.read_csv("data/X_test.csv")
-    y = pd.read_csv("data/y_test.csv")
+    iris = load_iris(as_frame=True)
+    X = iris.data
+    y = iris.target
     return X, y
 
 def train_and_log():

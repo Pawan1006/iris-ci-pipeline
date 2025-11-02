@@ -1,0 +1,14 @@
+artifact_uri: file:///home/jupyter/week_5/mlruns/339161131117388021/a9204bd3ebf3442b8aa6c2b3eebe5b57/artifacts
+end_time: 1761904514464
+entry_point_name: ''
+experiment_id: '339161131117388021'
+lifecycle_stage: active
+run_id: a9204bd3ebf3442b8aa6c2b3eebe5b57
+run_name: RF_n150_d5
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761904512200
+status: 3
+tags: []
+user_id: jupyter

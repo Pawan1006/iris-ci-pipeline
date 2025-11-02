@@ -1,0 +1,10 @@
+artifact_location: file:///home/jupyter/week_5/mlruns/339161131117388021/models/m-d79203bc7e274df7945e4bad269d97f1/artifacts
+creation_timestamp: 1761902717380
+experiment_id: '339161131117388021'
+last_updated_timestamp: 1761902719478
+model_id: m-d79203bc7e274df7945e4bad269d97f1
+model_type: null
+name: model
+source_run_id: 950faddf51f74cd192b7af8f6fbe5a90
+status: 2
+status_message: null

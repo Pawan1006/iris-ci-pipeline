@@ -63,8 +63,8 @@ jobs:
         run: npm install -g @dvcorg/cml
 
       # Step 8: Comment test results on PR via CML
-      - name: Comment test results via CML
-        if: github.event_name == 'pull_request'
-        env:
-          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cml comment create --file result.txt
+    #  - name: Comment test results via CML
+   #     if: github.event_name == 'pull_request'
+  #      env:
+ #         REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        run: cml comment create --file result.txt

@@ -25,6 +25,8 @@ def train_and_log():
 
     for n_estimators in [50, 100, 150]:
         for max_depth in [3, 5, 8]:
+            print(">>> Tracking URI:", mlflow.get_tracking_uri())
+            print(">>> Working directory:", os.getcwd())
             with mlflow.start_run(run_name=f"RF_n{n_estimators}_d{max_depth}"):
                 model = RandomForestClassifier(
                     n_estimators=n_estimators,

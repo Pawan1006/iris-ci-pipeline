@@ -39,7 +39,7 @@ def train_and_log():
                 mlflow.log_params({"n_estimators": n, "max_depth": d})
                 mlflow.log_metric("accuracy", acc)
                 print(">>> Artifact URI:", mlflow.get_artifact_uri())
-                mlflow.sklearn.log_model(model, artifact_path="model")
+                mlflow.sklearn.log_model(model, name="model")
 
 if __name__ == "__main__":
     train_and_log()

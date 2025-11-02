@@ -4,11 +4,11 @@ from mlflow.tracking import MlflowClient
 import pandas as pd
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_iris
 
 def load_data():
-    X = pd.read_csv("data/X_test.csv")
-    y = pd.read_csv("data/y_test.csv")
-    return X, y
+    iris = load_iris(as_frame=True)
+    return iris.data, iris.target
 
 def evaluate_best_model():
     X, y = load_data()

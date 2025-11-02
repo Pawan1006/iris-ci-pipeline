@@ -7,6 +7,10 @@ from sklearn.model_selection import train_test_split
 from joblib import dump
 from sklearn.datasets import load_iris
 
+os.makedirs("mlruns", exist_ok=True)
+mlflow.set_tracking_uri("file:./mlruns")
+mlflow.set_experiment("Iris_Pipeline_MLflow")
+
 def load_data():
     iris = load_iris(as_frame=True)
     X = iris.data

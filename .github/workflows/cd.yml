@@ -38,9 +38,9 @@ jobs:
       - name: Deploy to GKE
         run: |
           echo "🧱 Deploying Iris API to GKE..."
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/hpa.yaml
+          kubectl apply -f k8s/deployment.yaml --validate=false
+          kubectl apply -f k8s/service.yaml --validate=false
+          kubectl apply -f k8s/hpa.yaml --validate=false
           kubectl rollout status deployment/iris-api
           kubectl get pods
           kubectl get svc

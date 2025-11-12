@@ -1,4 +1,4 @@
-name: CD Pipeline - Deploy FastAPI App on GKE
+name: CD Pipeline - Deploy FastAPI App on GKE and Stress Test
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Configure Docker to use gcloud as a credential helper
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Build Docker image
         run: |
@@ -37,5 +37,58 @@ jobs:
 
       - name: Deploy to GKE
         run: |
+          echo "🧱 Deploying Iris API to GKE..."
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/hpa.yaml
+          kubectl rollout status deployment/iris-api
+          kubectl get pods
+          kubectl get svc
+
+  stress-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Google Cloud authentication
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: cluster-1
+          location: us-east1-b
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Install wrk
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wrk
+
+      - name: Wait for Service External IP
+        id: get-ip
+        run: |
+          echo "⏳ Waiting for LoadBalancer external IP..."
+          for i in {1..20}; do
+            EXTERNAL_IP=$(kubectl get svc iris-api-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ ! -z "$EXTERNAL_IP" ]; then
+              echo "✅ External IP found: $EXTERNAL_IP"
+              echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+              break
+            fi
+            echo "Waiting for external IP..."
+            sleep 15
+          done
+
+      - name: Run load test with wrk
+        run: |
+          echo "🚀 Starting load test with 1000 concurrent requests for 30 seconds..."
+          wrk -t4 -c1000 -d30s http://$EXTERNAL_IP:8080/ || true
+
+      - name: Display scaling status
+        run: |
+          echo "📈 Checking pod scaling..."
+          kubectl get hpa
+          kubectl get pods -o wide

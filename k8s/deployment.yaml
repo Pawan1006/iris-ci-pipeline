@@ -17,3 +17,10 @@ spec:
         image: us-central1-docker.pkg.dev/amazing-centaur-473015-c7/iris-repo/iris-api:latest
         ports:
         - containerPort: 8080
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
